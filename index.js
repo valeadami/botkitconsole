@@ -1,14 +1,23 @@
 var Botkit = require('./lib/Botkit.js');
 var os = require('os');
 var getRemoteData=require('./lib/myModules/somma');
-var utOnBoarding=['ciao', 'ciao ciao'];
+var utOnBoarding=['ciao', 'ciao ciao', 'zzzstart'];
 var utPrenotazione=['(.*) prenotare (.*)', 'prenotare esame (.*)', 'appello di  (.*)','(.*) appello di  (.*)' ];
 var utFine=['stop', 'basta','fine','termina','esci','exit'];
 var utHelp=['help','aiuto','aiutami','ho bisogno di aiuto','help me','guida'];
+var resInBoarding="Ciao! Sono il bot dell’Università degli studi di Trieste. Posso aiutarti a prenotare un appello, vedere il tuo libretto, vedere i risultati di un esame. Dì o digita help per ricevere aiuto,annulla per annullare l’operazione, stop per uscire dalla chat;"
 var respHelp="sono qui per aiutarti";
-var respGuida="sono qui per guidarti all'uso di Essetre. Dì ad esempio o digita prenotazione dell'esame di matematica per prenotare un appello, oppure risultati appello matematica per visualizzare il voto dell'esame di matematica, oppure libretto per conoscere la tua carriera";
+var respGuida="Bene, hai chiesto aiuto! Puoi darmi istruzione via chat o in modalità vocale. Ascolto le tue parole, quindi se vuoi continuare dimmi o scrivi prenotazione, libretto o esito. Per uscire dalla chat dì stop, per annullare un'operazione dì annulla";
+var respUndo="Ok, come non detto";
+var respFallback="scusami, qualcosa è andato storto, riprova per favore";
+var questMenu='cosa vuoi fare ora? Dì o digita prenotazione per prenotare appello, libretto per vedere il tuo libretto, esito per vedere esito esame, help per ricevere aiuto, stop per terminare, annulla per annullare operazione'
+var resLogin="Per connetterti a essetre ho bisogno delle tue credenziali";
+var questPrenUsername="qual’è la tua username? In genere è nel formato s123456";
+var questPrenPassword="qual’è la tua password? In genere è composta da otto caratteri alfanumerici, ad esempio Q3VRAAQP";
+var respUscita="Vuoi uscire?"
 var username='';
 var password='';
+
 var controller = Botkit.consolebot({
     debug: true,
 });
@@ -26,8 +35,103 @@ controller.on('conversationStarted', function(bot, convo) {
 controller.hears(utOnBoarding, 'message_received', function(bot, message) {
 
     
-            bot.reply(message, 'Ciao sono il bot dell \' università di Trieste. Puoi accedere a EsseTre vedere il tuo libretto, prenotare un esame o vedere l\'esito di un esame');
+           bot.reply(message, resInBoarding);
+           bot.createConversation(message, (err, convo) => {
+            // DEFINISCO I THREAD
+            convo.addMessage({text: resLogin},'prenotazione_thread');
+            convo.addMessage({text: resLogin},'libretto_thread');
+            convo.addMessage({text: resLogin},'esito_thread');
+            convo.addMessage({text: resInBoarding},'menu_thread');
+            convo.addMessage({text: respGuida},'help_thread');
+            convo.addMessage({text: respUndo},'undo_thread');
+            convo.addMessage({text: respFallback},'fallback_thread');
+            convo.addMessage({text: respUscita},'stop_thread');
+
+         
+           // Create a yes/no question in the default thread...
+           convo.addQuestion(questMenu, [
+
+                {
+                    pattern: 'prenotazione',
+                    callback: function(response, convo) {
+                        convo.gotoThread('prenotazione_thread');
+                        convo.next();
+                    },
+                },
+                {
+                    pattern: 'libretto',
+                    callback: function(response, convo) {
+                        convo.gotoThread('libretto_thread');
+                        convo.next();
+                    },
+                },
+                {
+                    pattern: 'esito',
+                    callback: function(response, convo) {
+                        convo.gotoThread('esito_thread');
+                        convo.next();
+                    },
+                },
+               {
+                   pattern: 'help',
+                   callback: function(response, convo) {
+                       convo.gotoThread('help_thread');
+                       convo.next();
+                   },
+               },
+               {
+                   pattern: 'annulla',
+                   callback: function(response, convo) {
+                       convo.gotoThread('undo_thread');
+                       convo.next();
+                   },
+               },
+               {
+                pattern: 'stop',
+                callback: function(response, convo) {
+                    convo.gotoThread('stop_thread');
+                    convo.next();
+                },
+            },
+               {
+                   default: true,
+                   callback: function(response, convo) {
+                       convo.gotoThread('fallback_thread');
+                       convo.next();
+                   },
+               }
+           ],{'key': 'scelta'},'default');
+       
+           convo.activate();
+           //quando vado al thread selezionato, ad esempio la prenotazione
+           //chiedo la username
+           convo.addQuestion({text: questPrenUsername}, [
+            {
+                pattern: 's[0-9]', //pattern
+                callback: function(response, convo) {
+                     // verificare la validità della username
+                       convo.next();
+  
+                }
+            }],{'key': 'username'},'prenotazione_thread');
+
+            //chiedo la password 
+            convo.addQuestion('Qual’è la tua password?', [
+                {
+                    pattern: '[0-9]', //pattern
+                    callback: function(response, convo) {
+                         // verificare la validità della pwd
+                           convo.next();
         
+                    }
+                }],{'key': 'password'},'prenotazione_thread');
+
+           convo.on('end', function(convo){
+              
+               var res=convo.extractResponses();
+               console.log('sono in end e la tua username ' + res.username );
+           });
+        });
     
 });
 //trigger 
@@ -136,6 +240,15 @@ controller.hears(utHelp, 'message_received', function(bot, message) {
          convo.setVar('threadname',"next_step");
 // first, define a thread called `next_step` that we'll route to...
         convo.addMessage({text: 'This is the next step...',},'next_step');
+        convo.addQuestion("chi sei?", [
+            {
+              pattern: 'dio',
+              callback: function(response,convo) {
+                convo.say('OK you are done!');
+                convo.next();
+              }
+            }],{'key': 'pd'}, 'next_step');
+
     // send a message, and tell botkit to immediately go to the next_step thread
         convo.addMessage({
             text: 'Anyways, moving on...',
@@ -143,7 +256,8 @@ controller.hears(utHelp, 'message_received', function(bot, message) {
     });
     convo.activate();
     convo.on('end', function(convo){
-        console.log('sono in end di testazione1');
+        var res=convo.extractResponse('pd');
+        console.log('sono in end di testazione1 e res=' + res);
     });
  });
 });
@@ -401,11 +515,11 @@ controller.hears(utFine, 'message_received', function(bot, message) {
 The object's name is {{vars.object.name}}.
 
 {{#foo}}If foo is set, I will say this{{/foo}}{{^foo}}If foo is not set, I will say this other thing.{{/foo}}*/
-         convo.ask('Are you sure you want me to stop? ' + 'stato convo '+ convo.status, [
+         convo.ask('confermi di uscire?', [
              {
                  pattern: bot.utterances.yes,
                  callback: function(response, convo) {
-                     convo.say('Bye!');
+                     convo.say('Arrivederci!');
                      convo.next();
                      setTimeout(function() {
                          process.exit();
@@ -416,17 +530,13 @@ The object's name is {{vars.object.name}}.
              pattern: bot.utterances.no,
              default: true,
              callback: function(response, convo) {
-                 convo.say('*Phew!*');
+                 convo.say('Ok rimango in ascolto...');
                  convo.next();
              }
          }
          ]);
  
-             // create an end state thread
- /*convo.addMessage('This is the end!', 'the_end');
- 
- // now transition there with a nice message
- convo.transitionTo('the_end','Well I think I am all done. Bye!');*/
+           
      });
  
  });
@@ -478,16 +588,3 @@ function formatUptime(uptime) {
     return uptime;
 }
 
-
-
-    /* PARTI OLD DEL PROGETTO ORIGINALE
-controller.hears(['hello', 'hi'], 'message_received', function(bot, message) {
-
-    controller.storage.users.get(message.user, function(err, user) {
-        if (user && user.name) {
-            bot.reply(message, 'Hello ' + user.name + '!!');
-        } else {
-            bot.reply(message, 'Hello.');
-        }
-    });
-});*/
