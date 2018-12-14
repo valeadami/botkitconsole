@@ -2,11 +2,11 @@ var Botkit = require('./lib/Botkit.js');
 var os = require('os');
 var getRemoteData=require('./lib/myModules/somma');
 var utOnBoarding=['ciao', 'ciao ciao', 'zzzstart'];
-var utPrenotazione=['(.*) prenotare (.*)', 'prenotare esame (.*)', 'appello di  (.*)','(.*) appello di  (.*)' ];
+var utPrenotazione=['prenotazione', 'prenotare (.*)', 'prenotare esame (.*)', 'appello di  (.*)','(.*) appello di  (.*)' ];
 var utFine=['stop', 'basta','fine','termina','esci','exit'];
 var utHelp=['help','aiuto','aiutami','ho bisogno di aiuto','help me','guida'];
-var resInBoarding="Ciao! Sono il bot dell’Università degli studi di Trieste. Posso aiutarti a prenotare un appello, vedere il tuo libretto, vedere i risultati di un esame. Dì o digita menu per accedere alle funzioni, help per ricevere aiuto, stop per uscire dalla chat";
-var resMenu="Dì o digita prenotazione per prenotare un appello, libretto per conoscere la tua carriera, esito per conoscere esito di un esame, help per ricevere aiuto, stop per uscire dalla chat";
+var resInBoarding="Ciao! Sono il bot dell’Università degli studi di Trieste. Posso aiutarti a prenotare un appello, vedere il tuo libretto, vedere i risultati di un esame. Per connetterti a essetre ho bisogno delle tue credenziali";
+var resMenu="Sei al menu: dì o digita prenotazione per prenotare un appello, libretto per conoscere la tua carriera, esito per conoscere esito di un esame, help per ricevere aiuto, stop per uscire dalla chat";
 var respHelp="sono qui per aiutarti";
 var respGuida="Bene, hai chiesto aiuto! Puoi darmi istruzione via chat o in modalità vocale. Ascolto le tue parole, quindi se vuoi continuare dimmi o scrivi prenotazione, libretto o esito. Per uscire dalla chat dì stop, per annullare un'operazione dì annulla";
 var respUndo="Ok, come non detto";
@@ -18,6 +18,49 @@ var questPrenPassword="qual’è la tua password? In genere è composta da otto 
 var respUscita="Vuoi uscire?"
 var username='';
 var password='';
+var appelliPrenotabili=['istituzioni di diritto romano','lingua inglese','giurisprudenza I'];
+var esamiSostenuti=['sociologia','diritto civile','diritto penale'];
+var appelli=
+    [
+    {nome:'istituzioni di diritto romano', 
+    id:1,
+    data :new Date('2018-12-18'), 
+    sessione:'2017-2018'},
+    {nome:'lingua inglese', 
+    id:2,
+    data :new Date('2018-12-19'), 
+    sessione:'2017-2018'},
+    {nome:'giurisprudenza I', 
+    id:3,
+    data :new Date('2018-12-29'), 
+    sessione:'2017-2018'}
+];
+function getAppelli(){
+    var appelliTemp='';
+    for (let i in appelli) {  
+        appelliTemp+=appelli[i].nome+ ','
+            console.log('DEBUG: appelli prenotabili ' +appelli[i].nome);
+           
+          }
+          return appelliTemp;
+
+}
+function getAppellixNome(name){
+    var appelliTemp='';
+    for (let i in appelli) {  
+       appelliTemp=appelli[i].nome;
+       if(appelliTemp===appelli[i].nome)
+       {
+           appelliTemp=appelli[i].data.toString();
+           console.log('DEBUG: data del appello '+ appelliTemp);
+       }
+           
+    }
+          return appelliTemp;
+
+}
+    
+
 
 var controller = Botkit.consolebot({
     debug: false,
@@ -35,57 +78,89 @@ controller.on('conversationStarted', function(bot, convo) {
   controller.hears(utOnBoarding, 'message_received', function (bot, message) {
 
     /* onboarding */
-    bot.reply(message, resInBoarding);
+    //bot.reply(message, resInBoarding);
 
     bot.createConversation(message, (err, convo) => {
         // DEFINISCO I THREAD
-        convo.addMessage({ text: resLogin }, 'prenotazione_thread');
-        convo.addMessage({ text: resLogin }, 'libretto_thread');
-        convo.addMessage({ text: resLogin }, 'esito_thread');
+        convo.addMessage({ text: resLogin }, 'login_thread');
         convo.addMessage({ text: resInBoarding }, 'default');
-        convo.addMessage({ text: respGuida }, 'help_thread');
-        convo.addMessage({ text: respUndo }, 'undo_thread');
-        convo.addMessage({ text: respFallback }, 'fallback_thread');
-        convo.addMessage({ text: respUscita }, 'stop_thread');
         convo.addMessage({ text: resMenu }, 'menu_thread');
 
+        convo.addMessage({ text: 'sono in prenotazione' }, 'prenotazione_thread');
+        convo.addMessage({ text: 'ora seleziona la data ' }, 'data _prenotazione_thread');
+        convo.addMessage({ text: 'ok finito con la prenotazione '}, 'conferma_prenotazione_thread');
+       
+        convo.addMessage({ text: 'ok annullo tutto! ' }, 'no _prenotazione_thread');
+        convo.addMessage({ text: 'continuare on no' }, 'continua_prenotazione_thread');
+       
+        //convo.addMessage({ text: respGuida }, 'help_thread');
+        //convo.addMessage({ text: respUndo }, 'undo_thread');
+        //convo.addMessage({ text: respFallback }, 'fallback_thread');
+       // convo.addMessage({ text: respUscita }, 'stop_thread');
+        
         // Create a yes/no question in the default thread...
-        convo.addQuestion(questMenu, [
+
+        convo.addQuestion("vuoi continuare con il login?", [
+
+            {
+                pattern: 'si',
+                callback: function (response, convo) {
+                    convo.gotoThread('login_thread');
+                    convo.next();
+                },
+            },
+            {
+                pattern: 'no',
+                callback: function (response, convo) {
+                    convo.gotoThread('stop_thread');
+                    convo.next();
+                },
+            },
+           
+            {
+                default: true,
+                callback: function (response, convo) {
+                   // convo.gotoThread('default_thread');
+                    convo.repeat();
+                    convo.next();
+                },
+            }
+        ], { 'key': 'scelta' }, 'default');
+        
+       
+        //MENU LOGIN
+        convo.addQuestion({ text: questPrenUsername }, [
+            {
+                pattern: 's[0-9]', //pattern
+                callback: function (response, convo) {
+                    // verificare la validità della username
+                    convo.next();
+
+                }
+            }], { 'key': 'username' }, 'login_thread');
+
+        //chiedo la password 
+        convo.addQuestion('Qual’è la tua password?', [
+            {
+                pattern: '[0-9]', //pattern
+                callback: function (response, convo) {
+                    // verificare la validità della pwd
+                    convo.gotoThread('menu_thread');
+                    convo.next();
+
+                }
+            }], { 'key': 'password' }, 'login_thread');
+
+
+            // MENU THREAD
+        convo.addQuestion({text:questMenu},  [
 
             {
                 pattern: 'prenotazione',
-                callback: function (response, convo) {
+                callback:function(response, convo){
                     convo.gotoThread('prenotazione_thread');
                     convo.next();
-                },
-            },
-            {
-                pattern: 'libretto',
-                callback: function (response, convo) {
-                    convo.gotoThread('libretto_thread');
-                    convo.next();
-                },
-            },
-            {
-                pattern: 'esito',
-                callback: function (response, convo) {
-                    convo.gotoThread('esito_thread');
-                    convo.next();
-                },
-            },
-            {
-                pattern: 'help',
-                callback: function (response, convo) {
-                    convo.gotoThread('help_thread');
-                    convo.next();
-                },
-            },
-            {
-                pattern: 'annulla',
-                callback: function (response, convo) {
-                    convo.gotoThread('default');
-                    convo.next();
-                },
+                }
             },
             {
                 pattern: 'stop',
@@ -95,54 +170,112 @@ controller.on('conversationStarted', function(bot, convo) {
                 },
             },
             {
-                pattern: 'menu',
+                pattern: 'help',
                 callback: function (response, convo) {
+                   // convo.gotoThread('help_thread');
+                    
+                    convo.say(respGuida);
                     convo.gotoThread('menu_thread');
                     convo.next();
                 },
             },
+        ], {'key':'prenotazione'},'menu_thread');
+
+        //HELP THREAD
+
+        // PRENOTAZIONE  thread
+        convo.addMessage({text:'Procedo con elenco degli appelli che puoi prenotare: '+ getAppelli()}, 'prenotazione_thread');
+        convo.addQuestion({text:'quale appello vuoi prenotare?'}, [
+
             {
-                default: true,
-                callback: function (response, convo) {
-                    convo.gotoThread('fallback_thread');
+                pattern: 'lingua inglese',
+                callback:function(response, convo){
+                    convo.gotoThread('data_prenotazione_thread');
                     convo.next();
-                },
+                }
+
             }
-        ], { 'key': 'scelta' }, 'default');
 
+            ], {'key':'da_prenotare'},'prenotazione_thread');
+      
+            //getAppellixNome
+       
+           convo.addQuestion({text:'queste sono le date disponibili' + getAppellixNome('lingua inglese')+ ' confermi?'}, 
+           [
+
+            {
+                pattern: 'si',
+                callback:function(response, convo){
+                    convo.gotoThread('conferma_prenotazione_thread');
+                    
+                    convo.next();
+                }
+
+            },
+            {
+                pattern: 'no',
+                callback:function(response, convo){
+                    convo.gotoThread('no_prenotazione_thread');
+                    convo.next();
+                }
+
+            }
+
+
+            ],{key:'data_da_prenotare'}, 'data_prenotazione_thread');
+
+           //
+            convo.addQuestion({text:'vuoi prenotare un altro appello? '}, 
+            [
+                {
+                    pattern: 'si',
+                    callback: function(response, convo) {
+                      convo.gotoThread('prenotazione_thread');
+                        convo.next();
+                    }
+                },
+                {
+                    pattern: 'no',
+                    callback: function(response, convo) {
+                      convo.gotoThread('menu_thread');
+                        convo.next();
+                    }
+                }], {key:'conferma'}, 'conferma_prenotazione_thread');
+
+        //STOP USCITA THREAD
+        convo.addQuestion('confermi di uscire?', [
+            {
+                pattern: bot.utterances.yes,
+                callback: function(response, convo) {
+                    convo.say('Arrivederci!');
+                    convo.next();
+                    setTimeout(function() {
+                        process.exit();
+                    }, 3000);
+                }
+            },
+        {
+            pattern: bot.utterances.no,
+            default: true,
+            callback: function(response, convo) {
+                convo.say('Ok rimango in ascolto...');
+                convo.gotoThread('default');
+                convo.next();
+            }
+        }
+        ], { }, 'stop_thread');
+
+        //ATTIVO LA CONVERSAZIONE
         convo.activate();
-        //quando vado al thread selezionato, ad esempio la prenotazione
-        //chiedo la username
-        convo.addQuestion({ text: questPrenUsername }, [
-            {
-                pattern: 's[0-9]', //pattern
-                callback: function (response, convo) {
-                    // verificare la validità della username
-                    convo.next();
+        //fine stop
 
-                }
-            }], { 'key': 'username' }, 'prenotazione_thread');
-
-        //chiedo la password 
-        convo.addQuestion('Qual’è la tua password?', [
-            {
-                pattern: '[0-9]', //pattern
-                callback: function (response, convo) {
-                    // verificare la validità della pwd
-                    convo.next();
-
-                }
-            }], { 'key': 'password' }, 'prenotazione_thread');
-        convo.addMessage('sei al menu', 'menu_thread')
         convo.on('end', function (convo) {
-            /* if (convo.status==='completed'){
-                 convo.status='active';
-                 console.log('il mio status ora è' + convo.status);
-               }*/
+          
             var res = convo.extractResponses();
             console.log('sono in end e la tua username ' + res.username);
-            /*convo.gotoThread('menu');
-            convo.next();*/
+           // console.log('sono in end e la tua prenotazione ' + res.da_prenotare);
+            //chiamata a essetre
+           
 
 
         });
@@ -150,6 +283,87 @@ controller.on('conversationStarted', function(bot, convo) {
 
 });
 
+controller.hears(utPrenotazione, 'message_received', function(bot, message) {
+
+   // convo.addMessage({text:'Procedo con elenco degli appelli che puoi prenotare'}, 'prenotazione_thread');
+   bot.reply(message, 'Ecco elenco degli appelli che puoi prenotare');
+    //simulo la chiamata a essetre o li recupero già al login
+    var appelliTemp=getAppelli();
+
+ 
+
+      
+/*
+    bot.startConversation(message, function(err, convo) {
+        if (!err) {
+            
+            convo.ask('cosa vuoi fare', function(response, convo) {
+                convo.ask('vuoi che proceda con `' + response.text + '`?', [
+                    {
+                        pattern: 'si',
+                        callback: function(response, convo) {
+                           
+                            convo.next();
+                        }
+                    },
+                    {
+                        pattern: 'no',
+                        callback: function(response, convo) {
+                           
+                            convo.stop();
+                        }
+                    },
+                    {
+                        default: true,
+                        callback: function(response, convo) {
+                            convo.repeat();
+                            convo.next();
+                        }
+                    }
+                ]);
+
+                convo.next();
+
+            }, {'key': 'nickname'}); // store the results in a field called nickname
+
+            convo.on('end', function(convo) {
+                if (convo.status == 'completed') {
+                    bot.reply(message, 'OK! procedo!');
+
+                    controller.storage.users.get(message.user, function(err, user) {
+                        if (!user) {
+                            user = {
+                                id: message.user,
+                            };
+                        }
+                        user.name = convo.extractResponse('nickname');
+                       
+                        controller.storage.users.save(user, function(err, id) {
+                            bot.reply(message, 'Procedo con ' + user.name);
+                        });
+                    });
+                    let sp='';
+                    getRemoteData('http://86.107.98.69:8080/AVA/rest/searchService/search_2?searchText=ciao&user=&pwd=&ava=FarmaInfoBot').then((response) => {
+                        const data = JSON.parse(response);
+                        //console.log('data = ' + JSON.stringify(data));
+                       // sp += 'There are currently '+data.people.length+  ' astronauts in space';
+                        sp+=data.output[0].output;
+                       // console.log('sp=' + sp);
+                       convo.setVar('esame', sp)
+
+                        bot.reply(message, '****PUOI PRENOTARE ESAME ' + sp);
+                        bot.trigger('help_request', [bot, message]);
+                    });
+
+                } else {
+                    // this happens if the conversation ended prematurely for some reason
+                    bot.reply(message, 'OK, nevermind!');
+                }
+            });
+        }
+    });*/
+
+});
 //trigger 
 controller.hears(utHelp, 'message_received', function(bot, message) {
     // this event can be triggered whenever a user needs help
@@ -362,6 +576,76 @@ convo.beforeThread('completed', function(convo, next) {
 
   //  });
 });
+
+// tratto da https://gist.github.com/jonchurch/afaa4b4ae7286e9f5a0199d48c675428
+
+// Chaining multiple questions together using callbacks
+    // You have to call convo.next() in each callback in order to keep the conversation flowing
+    controller.hears('qq', 'message_received', function(bot, message) {
+        bot.startConversation(message, function(err, convo) {
+            convo.say('Lets get to know each other a little bit!')
+
+            convo.ask('Which is more offensive? Book burning or flag burning?', function(res, convo) {
+                convo.next()
+
+                convo.ask('How often do you keep your promises?', function(res, convo) {
+                    convo.next()
+
+                    convo.ask('Which is bigger? The Sun or the Earth?', function(res, convo) {
+
+                        convo.say('Thank you, that is all for now')
+                        convo.next()
+
+                    })
+                })
+            })
+        })
+    })
+    controller.hears('qmio', 'message_received', function(bot, message) {
+        bot.startConversation(message, function(err, convo) {
+            convo.say('deso provemo...')
+            /*  domanda1*/
+            convo.ask('cossa xè pezo? Book burning or flag burning?', function(res, convo) {
+              
+            convo.next();
+            /*  domanda2
+                convo.ask('cossa xè meio? Book burning or flag burning?', function(res, convo) {
+                 
+                convo.next(); */
+                
+            })
+
+            }, {key:'risposte'},'default');
+        
+           // )}
+    });
+    // Method using threads and addQuestion
+    // Helps you avoid callback hell
+    // Docs for addQuestion https://github.com/howdyai/botkit/blob/master/readme.md#convoaddquestion
+    // Don't forget to pass an empty object after the callback and before the thread you're adding the question to!
+    controller.hears('thread', 'message_received', function(bot, message) {
+        bot.createConversation(message, function(err, convo) {
+
+            convo.addMessage('Charmed to meet you, lets get to know one another!')
+
+            convo.addQuestion('How much do you like robots?', function(res, convo) {
+                convo.gotoThread('q2')
+            }, {}, 'default')
+
+
+            convo.addQuestion('Do you like your job?', function(res, convo) {
+                convo.gotoThread('q3')
+            }, {}, 'q2')
+
+            convo.addQuestion('How much glucose and energy does your body generate per hour?', function(res, convo) {
+                convo.gotoThread('end')
+            }, {}, 'q3')
+
+
+            convo.addMessage('Okay thank you very much for the valuable info, human.', 'end')
+            convo.activate();
+        })
+    })
  //fine esempi manuale
 //fine modifica del 11/12/2018 
 //modifica del 10/12/2018
@@ -410,81 +694,7 @@ controller.hears(utPrenotazione, 'message_received', function(bot, message) {
     });
 });
 
-controller.hears(['cosa posso (.*)', 'che cosa (.*)', 'quali operazioni posso fare'], 'message_received', function(bot, message) {
 
-    
-    bot.reply(message, 'Puoi vedere il tuo libretto, prenotare un esame o vedere l\'esito di un esame');
-    bot.startConversation(message, function(err, convo) {
-        if (!err) {
-            
-            convo.ask('cosa vuoi fare', function(response, convo) {
-                convo.ask('vuoi che proceda con `' + response.text + '`?', [
-                    {
-                        pattern: 'si',
-                        callback: function(response, convo) {
-                            // since no further messages are queued after this,
-                            // the conversation will end naturally with status == 'completed'
-                            convo.next();
-                        }
-                    },
-                    {
-                        pattern: 'no',
-                        callback: function(response, convo) {
-                            // stop the conversation. this will cause it to end with status == 'stopped'
-                            convo.stop();
-                        }
-                    },
-                    {
-                        default: true,
-                        callback: function(response, convo) {
-                            convo.repeat();
-                            convo.next();
-                        }
-                    }
-                ]);
-
-                convo.next();
-
-            }, {'key': 'nickname'}); // store the results in a field called nickname
-
-            convo.on('end', function(convo) {
-                if (convo.status == 'completed') {
-                    bot.reply(message, 'OK! procedo!');
-
-                    controller.storage.users.get(message.user, function(err, user) {
-                        if (!user) {
-                            user = {
-                                id: message.user,
-                            };
-                        }
-                        user.name = convo.extractResponse('nickname');
-                       
-                        controller.storage.users.save(user, function(err, id) {
-                            bot.reply(message, 'Procedo con ' + user.name);
-                        });
-                    });
-                    let sp='';
-                    getRemoteData('http://86.107.98.69:8080/AVA/rest/searchService/search_2?searchText=ciao&user=&pwd=&ava=FarmaInfoBot').then((response) => {
-                        const data = JSON.parse(response);
-                        //console.log('data = ' + JSON.stringify(data));
-                       // sp += 'There are currently '+data.people.length+  ' astronauts in space';
-                        sp+=data.output[0].output;
-                       // console.log('sp=' + sp);
-                       convo.setVar('esame', sp)
-
-                        bot.reply(message, '****PUOI PRENOTARE ESAME ' + sp);
-                        bot.trigger('help_request', [bot, message]);
-                    });
-
-                } else {
-                    // this happens if the conversation ended prematurely for some reason
-                    bot.reply(message, 'OK, nevermind!');
-                }
-            });
-        }
-    });
-
-});
 
 controller.hears(['call me (.*)', 'my name is (.*)'], 'message_received', function(bot, message) {
     var name = message.match[1];
@@ -651,4 +861,3 @@ function formatUptime(uptime) {
     uptime = uptime + ' ' + unit;
     return uptime;
 }
-
