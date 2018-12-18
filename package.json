@@ -2,13 +2,14 @@
   "name": "botkit",
   "version": "0.6.21",
   "description": "Building blocks for Building Bots",
-  "main": "index.js",
+  "main": "indexdg.js",
   "types": "lib/Botkit.d.ts",
   "dependencies": {
     "async": "^2.6.1",
     "back": "^1.0.2",
     "body-parser": "^1.18.3",
     "botbuilder": "^3.15.0",
+    "botkit-middleware-dialogflow": "^2.0.4",
     "botkit-studio-sdk": "^1.0.8",
     "chalk": "^2.4.1",
     "ciscospark": "^1.32.23",
@@ -81,3 +82,4 @@
     "testEnvironment": "node"
   }
 }
+
