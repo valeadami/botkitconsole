@@ -74,12 +74,8 @@ controller.on('conversationStarted', function(bot, convo) {
      */
     var replyText='';
     if (message.entities) {
-      console.log('sono nelle entità');
-      for (var e = 0; e < message.entities.length; e++) {
-         console.log('nome entità '+ message.entities[e].name );
-         replyText=message.entities[e].value;
-         bot.reply(message, replyText);
-      }
+      console.log('sono nelle entità' + JSON.stringify(message.entities));
+     
       
   } else {
     console.log('NON sono nelle entità');
