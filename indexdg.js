@@ -1,7 +1,9 @@
 var Botkit = require('./lib/Botkit.js');
 var os = require('os');
 var getRemoteData=require('./lib/myModules/somma');
-
+var ctrlEsseTre=require('./Classi/clsControllerS3.js');
+var studente=require('./Classi/clsStudente.js');
+var carrieraStudente=require('./Classi/clsCarriera.js');
 var controller = Botkit.consolebot({
     debug: true
 });
@@ -40,6 +42,32 @@ controller.on('conversationStarted', function(bot, convo) {
   controller.on('conversationEnded', function(bot, convo) {
     console.log('<----------------- A conversation ended with ', convo.context.user);
   });
+
+  //15/01/2019
+controller.hears(['Libretto'], 'message_received', dialogflowMiddleware.hears, function(bot, message) {
+  //console.log('valore di message '+ JSON.stringify(message));
+  bot.reply(message, 'sono nel Libretto');
+  var replyText='';
+  
+  
+    console.log(JSON.stringify(message.entities));
+
+      ctrlEsseTre.getLibretto().then((libretto)=> {
+      replyText='**************** ecco gli esami ';
+      if (Array.isArray(libretto)){
+       
+        for(var i=0; i<libretto.length; i++){
+
+          replyText+='esame di ' +   libretto[i].adDes+ ', frequentato  nell \'anno ' +libretto[i].aaFreqId +', anno di corso ' +
+          libretto[i].annoCorso + ', ' ;
+
+        }
+      }
+      bot.reply(message, replyText)
+      //console.log('risposta statica da DF '+ replyText);
+    });
+ 
+});
   controller.hears(['Default Welcome Intent'], 'message_received', dialogflowMiddleware.hears, function(bot, message) {
     
     var replyText = message.fulfillment.text;  // message object has new fields added by Dialogflow
