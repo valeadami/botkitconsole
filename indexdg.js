@@ -37,7 +37,7 @@ controller.middleware.receive.use(dialogflowMiddleware.receive);
 
 /* Send middleware can be used to do things like preprocess the message content before it gets sent out to the messaging client.*/
 
-controller.middleware.send.use(dialogflowMiddleware.use);
+//controller.middleware.send.use(dialogflowMiddleware.use);
 
 //lifecycle convo events
 controller.on('conversationStarted', function(bot, convo) {
@@ -47,7 +47,7 @@ controller.on('conversationStarted', function(bot, convo) {
     console.log('<----------------- A conversation ended with ', convo.context.user + " message " + convo.message);
     
   });
-  //*********************************  BOT SHOULD RESOLVE THIS -NO DF ***************************/
+  //********************************* GESTITO DAL BOT  ***************************/
   //hears 
   controller.hears('hello', 'message_received', function (bot, message) {
 
@@ -59,7 +59,7 @@ controller.on('conversationStarted', function(bot, convo) {
     bot.createConversation(message, (err, convo) => {
     
       // DEFINISCO I THREAD
-      convo.addMessage({ text: myConvo.respLogin }, 'login_thread');
+      convo.addMessage({ text: myConvo.botOnBoarding.respLogin }, 'login_thread');
       convo.addMessage({ text: myConvo.botOnBoarding.respOnBoarding }, 'default');
       convo.addMessage({ text: myConvo.respMenu }, 'menu_thread');
     
@@ -70,8 +70,9 @@ controller.on('conversationStarted', function(bot, convo) {
       convo.addQuestion(myConvo.botQuestions.questLogin, [
 
           {
-              pattern: 'si', //yes -> THIS IS HEARD BY DF, BUT IT'S INSIDE A CONVO!!
+              pattern: 'si', //yes
               callback: function (response, convo) {
+                  console.log('****************************dentro la callback di si');
                   convo.gotoThread('login_thread');
                   convo.next();
               },
@@ -163,7 +164,7 @@ controller.on('conversationStarted', function(bot, convo) {
 /******************************* FINE GESTITO DAL BOT */
 
 
-  //15/01/2019 ************************* DIALOG FLOW SHOULD HANDLE THIS *************************************
+  //15/01/2019 ************************* DIALOG FLOW *************************************
   controller.hears(['Libretto'], 'message_received', dialogflowMiddleware.hears, function(bot, message) {
     //console.log('valore di message '+ JSON.stringify(message));
     var replyText='';
@@ -245,7 +246,3 @@ convo.on('end', function (convo) {
     
    });
    
-
-
-
-
