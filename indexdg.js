@@ -1,85 +1,223 @@
 var Botkit = require('./lib/Botkit.js');
 var os = require('os');
 var getRemoteData=require('./lib/myModules/somma');
+var myConvo=require('./Conversation');
+//************************** gestione classi */
 var ctrlEsseTre=require('./Classi/clsControllerS3.js');
 var studente=require('./Classi/clsStudente.js');
 var carrieraStudente=require('./Classi/clsCarriera.js');
+
 var controller = Botkit.consolebot({
-    debug: true
+    debug: true,
 });
 
 //MODIFICA DEL 17/12/2018
 /********* modulo botkit middleware dialogflow */
 
 const dialogflowMiddleware = require('botkit-middleware-dialogflow')({
-    keyFilename: './botkit-test-7ea2ab19c3d7.json',  // service account private key file from Google Cloud Console
-    ignoreType: 'pippo'
+    keyFilename: './botkit-test-43930ebfe242.json',  // service account private key file from Google Cloud Console PER QUESTO PC
+   // ignoreType:['si','no', myConvo.utOnBoarding,'pippo','pluto','minnie']
+  //  debug: true
+     //ignoro alcune parole ma parte la richiesta a DF al si di risposta del login   ['si','no', myConvo.utOnBoarding,'pippo','pluto','minnie']
   });
 
 //******************* */
 
 var bot = controller.spawn();
+
+//funzione di test 
+
+
+//controller.middleware.receive.use(myTest); 
+
+/*Receive middleware can be used to do things like preprocess the message content using external natural language processing services like Wit.ai. 
+Additional information can be added to the message object for use down the chain.
+*/
 controller.middleware.receive.use(dialogflowMiddleware.receive);
 
+/* Send middleware can be used to do things like preprocess the message content before it gets sent out to the messaging client.*/
+
 controller.middleware.send.use(dialogflowMiddleware.use);
-controller.middleware.send.use(function(bot, message, next) {
 
-  // log the outgoing message for debugging purposes
-  /*console.log('SENDING ', message.text,'TO USER', message.text);
-
-  next();*/
-  if (message.intent == 'hey') {
-      message.text = 'Hello from DialogFlow!!!';
-  }
-  console.log('SENDING ', message.text,'TO USER', message.text);
-  next();
-
-});
 //lifecycle convo events
 controller.on('conversationStarted', function(bot, convo) {
     console.log('----------------> A conversation started with ', convo.context.user);
   });
   controller.on('conversationEnded', function(bot, convo) {
-    console.log('<----------------- A conversation ended with ', convo.context.user);
-  });
-
-  //15/01/2019
-controller.hears(['Libretto'], 'message_received', dialogflowMiddleware.hears, function(bot, message) {
-  //console.log('valore di message '+ JSON.stringify(message));
-  bot.reply(message, 'sono nel Libretto');
-  var replyText='';
-  
-  
-    console.log(JSON.stringify(message.entities));
-
-      ctrlEsseTre.getLibretto().then((libretto)=> {
-      replyText='**************** ecco gli esami ';
-      if (Array.isArray(libretto)){
-       
-        for(var i=0; i<libretto.length; i++){
-
-          replyText+='esame di ' +   libretto[i].adDes+ ', frequentato  nell \'anno ' +libretto[i].aaFreqId +', anno di corso ' +
-          libretto[i].annoCorso + ', ' ;
-
-        }
-      }
-      bot.reply(message, replyText)
-      //console.log('risposta statica da DF '+ replyText);
-    });
- 
-});
-  controller.hears(['Default Welcome Intent'], 'message_received', dialogflowMiddleware.hears, function(bot, message) {
+    console.log('<----------------- A conversation ended with ', convo.context.user + " message " + convo.message);
     
+  });
+  //*********************************  BOT SHOULD RESOLVE THIS -NO DF ***************************/
+  //hears 
+  controller.hears('hello', 'message_received', function (bot, message) {
+
+    /* onboarding */
+    bot.reply(message, 'here  in onBoarding');
+   
+
+// creo la conversazione
+    bot.createConversation(message, (err, convo) => {
+    
+      // DEFINISCO I THREAD
+      convo.addMessage({ text: myConvo.respLogin }, 'login_thread');
+      convo.addMessage({ text: myConvo.botOnBoarding.respOnBoarding }, 'default');
+      convo.addMessage({ text: myConvo.respMenu }, 'menu_thread');
+    
+ 
+      
+      // Create a yes/no question in the default thread...
+
+      convo.addQuestion(myConvo.botQuestions.questLogin, [
+
+          {
+              pattern: 'si', //yes -> THIS IS HEARD BY DF, BUT IT'S INSIDE A CONVO!!
+              callback: function (response, convo) {
+                  convo.gotoThread('login_thread');
+                  convo.next();
+              },
+          },
+          {
+              pattern: 'no', //no
+              callback: function (response, convo) {
+                  convo.gotoThread('stop_thread');
+                  convo.next();
+              },
+          },
+         
+          {
+              default: true,
+              callback: function (response, convo) {
+                 // convo.gotoThread('default_thread');
+                  convo.repeat();
+                  convo.next();
+              },
+          }
+      ], { 'key': 'scelta' }, 'default');
+     
+    //MENU LOGIN
+    convo.addQuestion({ text: myConvo.botQuestions.questPrenUsername }, [
+      {
+          pattern: 's[0-9]', //pattern
+          callback: function (response, convo) {
+              // verificare la validità della username
+              convo.next();
+
+          }
+      }], { 'key': 'username' }, 'login_thread');
+
+  //chiedo la password 
+  convo.addQuestion(myConvo.botQuestions.questPrenPassword, [
+      {
+          pattern: '[0-9]', //pattern
+          callback: function (response, convo) {
+              // verificare la validità della pwd
+              convo.gotoThread('menu_thread');
+              convo.next();
+
+          }
+      }], { 'key': 'password' }, 'login_thread');
+
+
+      // MENU THREAD ************* COMMENTATO LA PRENOTAZIONE E AGGIUNTO LIBRETTO IN DATA 14/01/2019
+  convo.addQuestion({text:(myConvo.botQuestions.questMenu)},  [
+
+     /* {
+          pattern: 'prenotazione',
+          callback:function(response, convo){
+              convo.gotoThread('prenotazione_thread');
+              convo.next();
+          }
+      },*/
+      {
+        pattern: 'libretto',
+        callback:function(response, convo){
+            convo.gotoThread('libretto_thread');
+            convo.next();
+        }
+    },
+      {
+          pattern: 'stop',
+          callback: function (response, convo) {
+              convo.gotoThread('stop_thread');
+              convo.next();
+          },
+      },
+      {
+          pattern: 'help',
+          callback: function (response, convo) {
+             // convo.gotoThread('help_thread');
+              
+              convo.say(respGuida);
+              convo.gotoThread('menu_thread');
+              convo.next();
+          },
+      },
+  ], {'key':'prenotazione'},'menu_thread');
+
+  //LIBRETTO  THREAD AGGIUNTO IN DATA 14/01/2019
+  convo.addMessage({ text: myConvo.questLibretto }, 'libretto_thread');
+  //qui attivo la convo
+  convo.activate();
+  });
+});
+/******************************* FINE GESTITO DAL BOT */
+
+
+  //15/01/2019 ************************* DIALOG FLOW SHOULD HANDLE THIS *************************************
+  controller.hears(['Libretto'], 'message_received', dialogflowMiddleware.hears, function(bot, message) {
+    //console.log('valore di message '+ JSON.stringify(message));
+    var replyText='';
+ 
+   bot.createConversation(message, (err, convo) => {
+    
+    // DEFINISCO I THREAD
+    convo.addMessage({ text:'test test ' }, 'default');
+
+  
+    convo.activate();
+    //});
+convo.on('end', function (convo) {
+    
+   // if (message.entities.libretto){
+        console.log('sono dentro if message.entities');
+        ctrlEsseTre.getLibretto().then((libretto)=> {
+            replyText+='**************** ecco il tuo libretto ****************** \n';
+            if (Array.isArray(libretto)){
+            
+              for(var i=0; i<libretto.length; i++){
+      
+                replyText+=   libretto[i].adDes+ ', frequentato  nell \'anno ' +libretto[i].aaFreqId +', anno di corso ' +
+                libretto[i].annoCorso + '\n ' ;
+                }
+             }
+        
+       
+            }); 
+       // }  
+    
+    console.log('here in end');
+
+});
+
+});
+  
+});
+   
+    
+  
+      //console.log(JSON.stringify(message.entities));
+  /************************* CHIAMATA API REST DI ESSETRE  */
+      
+ 
+  //'direct_message'  'message_received'
+  controller.hears(['Default Welcome Intent'], 'message_received', dialogflowMiddleware.hears, function(bot, message) {
     var replyText = message.fulfillment.text;  // message object has new fields added by Dialogflow
     
     bot.reply(message, replyText);
   });
+
   controller.hears(['test'], 'message_received', dialogflowMiddleware.hears, function(bot, message) {
-   /*
-   var replyText=getRemoteData('http://86.107.98.69:8080/AVA/rest/searchService/search_2?searchText=ciao&user=&pwd=&ava=FarmaInfoBot').then((name) => {
-      
-      replyText =name;
-     */
+  
     var replyText='';
     if (message.entities) {
       console.log('sono nelle entità' + JSON.stringify(message.entities));
@@ -92,65 +230,22 @@ controller.hears(['Libretto'], 'message_received', dialogflowMiddleware.hears, f
   }
     
   //}); 
+    
    
   });
-//qui ascolto la chat senza passare per DF
-  controller.hears('pippo', 'message_received', function(bot, message) {
 
-    bot.reply(message, 'provo...');
-  });
   
-  
+
 //STOP FINE CONVERSAZIONE
   controller.hears(['stopIntent'], 'message_received', dialogflowMiddleware.hears, function(bot, message) {
     var replyText = message.fulfillment.text;
+    bot.reply(message, 'here in stop');
     console.log('valore di replyText in stop da DG '+ replyText)
-   bot.startConversation(message, function(err, convo) {
-    convo.say(replyText);
-    
-   
- 
-    convo.stop();
-  // convo.next();
-    
-    })
+
     
    });
-   // verifica 24/12/2018 contesto fulfillment ecc
-   controller.hears(['Get Employee ID'], 'message_received', dialogflowMiddleware.hears, function(bot, message) {
-    var replyText='';
-   // console.log('valore di message '+ JSON.stringify(message));
-    console.log('________________________________');
-    console.log('intent è fallback? ' +  message.nlpResponse.queryResult.intent.isFallback);
-    /* output è:
-    {"fulfillmentMessages":[{"platform":"PLATFORM_UNSPECIFIED","text":{"text":["Thanks, I have noted down your Employee ID which is AAAAAA. Can you please confirm if this is correct?"]},"message":"text"}],"outputContexts":[{"name":"projects/botkit-test/agent/sessions/0933c1f8922a594dc0c4834f9bdbde2f/contexts/getemployeeid-followup","lifespanCount":2,"parameters":{"fields":{"employeeID":{"stringValue":"AAAAAA","kind":"stringValue"},"employeeID.original":{"stringValue":"AAAAAA","kind":"stringValue"}}}}],"queryText":"the id is AAAAAA","speechRecognitionConfidence":0,"action":"","parameters":{"fields":{"employeeID":{"stringValue":"AAAAAA","kind":"stringValue"}}},"allRequiredParamsPresent":true,"fulfillmentText":"Thanks, I have noted down your Employee ID which is AAAAAA. Can you please confirm if this is correct?","webhookSource":"","webhookPayload":null,"intent":{"inputContextNames":[],"events":[],"trainingPhrases":[],"outputContexts":[],"parameters":[],"messages":[],"defaultResponsePlatforms":[],"followupIntentInfo":[],"name":"projects/botkit-test/agent/intents/6b28dd52-364c-406e-a97e-df3573c74961","displayName":"Get Employee ID","priority":0,"isFallback":false,"webhookState":"WEBHOOK_STATE_UNSPECIFIED","action":"","resetContexts":false,"rootFollowupIntentName":"","parentFollowupIntentName":"","mlDisabled":false},"intentDetectionConfidence":1,"diagnosticInfo":{"fields":{"webhook_latency_ms":{"numberValue":63,"kind":"numberValue"}}},"languageCode":"en"}
-    */
-    console.log('________________________________')
-    console.log('queste le entities '+ JSON.stringify(message.entities));
-    console.log('________________________________'); 
-    //DEBUG: queste le entities {"employeeID":"AAAAAA"}
-
-    /* console.log('valore di nplresponse '+ message.nplResponse);
-    if (message.intent) {
-      replyText = message.intent;
-      console.log('valore di replyText INTENT in Get Employee ID da DG '+ replyText)
-      }
-    if (message.payload) {
-      replyText = message.payload;
-      console.log('valore di replyText PAYLOAD in Get Employee ID da DG '+ replyText)
-      }
-    if (message.action) {
-      replyText = message.action;
-      console.log('valore di replyText in ACTION di  Get Employee ID da DG '+ replyText)
-    }*/
-    if (message.fulfillment) {
-      replyText = message.fulfillment.text;
-    console.log('valore di replyText in FULFILLMENT text di  Get Employee ID da DG '+ replyText)
-    }
-  
    
- });
-  
+
 
 
 
